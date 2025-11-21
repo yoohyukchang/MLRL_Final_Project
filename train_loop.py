@@ -109,23 +109,38 @@ def train(env, agent, file_name, intrinsic_on, number_stack_frames, args):
         episode_reward += reward_extrinsic  # just for plotting/comparing purposes use this reward as it is i.e. from env
 
         if total_step_counter > max_steps_exploration:
+            if len(memory) < batch_size:
+                continue
             for _ in range(G):
-                experience = memory.sample(batch_size)
+                # experience = memory.sample(batch_size)
 
-                agent.train_policy((
-                    experience['state'],
-                    experience['action'],
-                    experience['reward'],
-                    experience['next_state'],
-                    experience['done'],
-                ))
+                # agent.train_policy((
+                #     experience['state'],
+                #     experience['action'],
+                #     experience['reward'],
+                #     experience['next_state'],
+                #     experience['done'],
+                # ))
+
+                # if intrinsic_on:
+                #     agent.train_predictive_model((
+                #         experience['state'],
+                #         experience['action'],
+                #         experience['next_state']
+                #     ))
+
+                states, actions, rewards, next_states, dones, _indices = memory.sample_uniform(batch_size)
+
+                states      = np.array(states)
+                actions     = np.array(actions)
+                rewards     = np.array(rewards)
+                next_states = np.array(next_states)
+                dones       = np.array(dones)
+
+                agent.train_policy((states, actions, rewards, next_states, dones))
 
                 if intrinsic_on:
-                    agent.train_predictive_model((
-                        experience['state'],
-                        experience['action'],
-                        experience['next_state']
-                    ))
+                    agent.train_predictive_model((states, actions, next_states))
 
         if done:
             episode_duration = time.time() - start_time
