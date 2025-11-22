@@ -52,6 +52,18 @@ python3 train_loop.py \
 - `--intrinsic False`: turn off intrinsic ensemble training for faster runs
 
 See `MODIFICATIONS.md` in the project root for a full list of edits, rationale, and additional suggestions for trading performance for speed (grayscale frames, smaller convs, smaller ensemble size, etc.).
+ 
+Additional examples (boredom / hybrid runs):
+
+- Hybrid (surprise + novelty + boredom penalty):
+```
+python3 train_loop.py --intrinsic True --boredom True --alpha_s 1.0 --alpha_n 1.0 --boredom_beta 0.1
+```
+
+- Boredom-only (disable surprise & novelty):
+```
+python3 train_loop.py --intrinsic True --boredom True --alpha_s 0.0 --alpha_n 0.0 --boredom_beta 0.1
+```
 ## Our Results
 
 

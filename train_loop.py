@@ -81,6 +81,11 @@ def train(env, agent, file_name, intrinsic_on, number_stack_frames, args):
 
     start_time = time.time()
     state      = frames_stack.reset()  # unit8 , (9, 84 , 84)
+    # reset agent boredom state at the start of training
+    try:
+        agent.reset_boredom()
+    except Exception:
+        pass
 
     for total_step_counter in range(1, int(max_steps_training) + 1):
         episode_timesteps += 1
@@ -93,13 +98,20 @@ def train(env, agent, file_name, intrinsic_on, number_stack_frames, args):
 
         next_state, reward_extrinsic, done = frames_stack.step(action)
 
-        if intrinsic_on and total_step_counter > max_steps_exploration:
-            a = 1.0
-            b = 1.0
-            surprise_rate, novelty_rate = agent.get_intrinsic_values(state, action, next_state)
-            reward_surprise = surprise_rate * a
-            reward_novelty  = novelty_rate  * b
-            total_reward    = reward_extrinsic + reward_surprise + reward_novelty
+        # compute intrinsic values when requested: either intrinsic flag OR boredom OR non-zero alpha weights
+        if (intrinsic_on or args.boredom or args.alpha_s != 0.0 or args.alpha_n != 0.0) and total_step_counter > max_steps_exploration:
+            vals = agent.get_intrinsic_values(state, action, next_state)
+            # agent.get_intrinsic_values returns (surprise, novelty, boredom)
+            if len(vals) == 3:
+                surprise_rate, novelty_rate, boredom_rate = vals
+            else:
+                surprise_rate, novelty_rate = vals
+                boredom_rate = 0.0
+
+            reward_surprise = surprise_rate * args.alpha_s
+            reward_novelty  = novelty_rate  * args.alpha_n
+            reward_boredom  = agent.boredom_beta * boredom_rate if args.boredom else 0.0
+            total_reward    = reward_extrinsic + reward_surprise + reward_novelty - reward_boredom
 
         else:
             total_reward = reward_extrinsic
@@ -157,6 +169,11 @@ def train(env, agent, file_name, intrinsic_on, number_stack_frames, args):
 
             start_time = time.time()
             state = frames_stack.reset()
+            # reset boredom at episode boundaries
+            try:
+                agent.reset_boredom()
+            except Exception:
+                pass
             episode_reward     = 0
             episode_timesteps  = 0
             episode_num       += 1
@@ -227,6 +244,11 @@ def define_parse_args():
 
 
     parser.add_argument('--intrinsic', type=bool, default=False)
+    parser.add_argument('--boredom', type=bool, default=False)
+    parser.add_argument('--boredom_beta', type=float, default=0.0)
+    parser.add_argument('--boredom_lambda', type=float, default=0.99)
+    parser.add_argument('--alpha_s', type=float, default=1.0)
+    parser.add_argument('--alpha_n', type=float, default=1.0)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--latent_size', type=int, default=200)
     parser.add_argument('--env',  type=str, default="ball_in_cup")
@@ -288,6 +310,11 @@ def main():
         k=number_stack_frames,
         img_h=args.render_height,
         img_w=args.render_width)
+
+    # configure boredom parameters on agent
+    agent.use_boredom = args.boredom
+    agent.boredom_beta = args.boredom_beta
+    agent.boredom_lambda = args.boredom_lambda
 
     intrinsic_on  = args.intrinsic
     if intrinsic_on:

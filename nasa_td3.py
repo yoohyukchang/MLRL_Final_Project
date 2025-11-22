@@ -65,6 +65,15 @@ class AE_TD3:
         w_decay_epm = 1e-3
         self.epm_optimizers = [torch.optim.Adam(self.epm[i].parameters(), lr=lr_epm, weight_decay=w_decay_epm) for i in range(self.ensemble_size)]
 
+        # boredom intrinsic variables (EMA of familiarity)
+        self.boredom = 0.0
+        self.boredom_lambda = 0.99  # EMA decay (close to 1 => slow change)
+        self.boredom_beta = 0.0     # penalty scale (set from train args)
+        self.use_boredom = False
+
+    def reset_boredom(self):
+        self.boredom = 0.0
+
     def select_action_from_policy(self, state, evaluation=False, noise_scale=0.1):
         self.actor.eval()
         with torch.no_grad():
@@ -174,7 +183,18 @@ class AE_TD3:
 
             surprise_rate = self.get_surprise_rate(state_tensor, action_tensor, next_state_tensor)
             novelty_rate  = self.get_novelty_rate(state_tensor)
-        return surprise_rate, novelty_rate
+
+            # boredom: model as an exponential moving average (EMA) of familiarity
+            # familiarity_t = 1 - novelty_t (novelty in [0,1])
+            # boredom_t = lambda * boredom_{t-1} + (1-lambda) * familiarity_t
+            if self.use_boredom:
+                familiarity = 1.0 - novelty_rate
+                self.boredom = self.boredom_lambda * self.boredom + (1.0 - self.boredom_lambda) * familiarity
+                boredom_rate = float(self.boredom)
+            else:
+                boredom_rate = 0.0
+
+        return surprise_rate, novelty_rate, boredom_rate
 
 
     def get_surprise_rate(self, state_tensor, action_tensor, next_state_tensor):

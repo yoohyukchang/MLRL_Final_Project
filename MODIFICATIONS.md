@@ -21,6 +21,8 @@ Summary of edits
 
 - `nasa_td3.py`
   - `AE_TD3` constructor now accepts `img_h` and `img_w`, creates the encoder with those sizes, reads the encoder conv shape, and constructs the decoder with the matching shape.
+  - `AE_TD3.get_intrinsic_values` now computes and returns a boredom value (EMA of familiarity).
+  - Added CLI-controllable intrinsic weights `--alpha_s` and `--alpha_n` (see below) so you can run pure-boredom, pure-surprise/novelty, or hybrid experiments.
 
 Notes on default behavior vs. recommended experiment settings
 - Code defaults (after edits):
@@ -69,5 +71,20 @@ If you want, I can (choose one):
 - implement grayscale pipeline + adjust networks (largest safe speedup),
 - expose `ensemble_size` and `num_filters` as CLI args and set smaller defaults, or
 - run a short smoke test (2000 steps) locally in this environment to confirm everything runs end-to-end.
+
+New intrinsic / boredom options and sample commands
+- `--alpha_s` and `--alpha_n` (floats, default 1.0) control the weight applied to surprise and novelty when `get_intrinsic_values` is computed. Use these to run boredom-only or hybrid experiments.
+
+Examples:
+
+- Boredom-only (disable surprise/novelty contribution):
+```
+python3 train_loop.py --intrinsic True --boredom True --alpha_s 0.0 --alpha_n 0.0 --boredom_beta 0.1
+```
+
+- Hybrid (surprise + novelty + boredom penalty):
+```
+python3 train_loop.py --intrinsic True --boredom True --alpha_s 1.0 --alpha_n 1.0 --boredom_beta 0.1
+```
 
 -- end
