@@ -4,17 +4,28 @@ from networks.weight_initialization import weight_init
 
 
 class Encoder(nn.Module):
-    def __init__(self, latent_dim, k=3):
+    def __init__(self, latent_dim, k=3, img_h=84, img_w=84):
         super(Encoder, self).__init__()
         self.num_layers  = 4
         self.num_filters = 32
         self.latent_dim  = latent_dim
+        self.k = k
 
-        self.cov_net = nn.ModuleList([nn.Conv2d(k, self.num_filters, 3, stride=2)])
+        self.cov_net = nn.ModuleList([nn.Conv2d(self.k, self.num_filters, 3, stride=2)])
         for i in range(self.num_layers - 1):
             self.cov_net.append(nn.Conv2d(self.num_filters, self.num_filters, 3, stride=1))
 
-        self.fc = nn.Linear(39200, self.latent_dim)
+        # determine flatten size dynamically given image size
+        with torch.no_grad():
+            dummy = torch.zeros(1, self.k, img_h, img_w)
+            conv = torch.relu(self.cov_net[0](dummy))
+            for i in range(1, self.num_layers):
+                conv = torch.relu(self.cov_net[i](conv))
+            conv_shape = conv.shape  # (1, num_filters, H', W')
+            self._conv_shape = (conv_shape[1], conv_shape[2], conv_shape[3])
+            flatten_size = conv.numel() // conv.shape[0]
+
+        self.fc = nn.Linear(flatten_size, self.latent_dim)
         self.ln = nn.LayerNorm(self.latent_dim)
 
         self.apply(weight_init)

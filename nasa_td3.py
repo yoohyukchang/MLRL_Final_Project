@@ -15,13 +15,15 @@ from networks import EPDM
 
 
 class AE_TD3:
-    def __init__(self, latent_size, action_num, device, k):
+    def __init__(self, latent_size, action_num, device, k, img_h=84, img_w=84):
 
         self.latent_size = latent_size
         self.action_num  = action_num
         self.device      = device
 
         self.k = k * 3  # number of stack frames, K*3  Because I am 3-CH color images
+        self.img_h = img_h
+        self.img_w = img_w
 
         self.gamma = 0.99
         self.tau   = 0.005
@@ -30,8 +32,10 @@ class AE_TD3:
         self.learn_counter      = 0
         self.policy_update_freq = 2
 
-        self.encoder = Encoder(latent_dim=self.latent_size, k=self.k).to(self.device)
-        self.decoder = Decoder(latent_dim=self.latent_size, k=self.k).to(self.device)
+        # create encoder first so we can infer conv output shape for decoder
+        self.encoder = Encoder(latent_dim=self.latent_size, k=self.k, img_h=self.img_h, img_w=self.img_w).to(self.device)
+        conv_shape = getattr(self.encoder, '_conv_shape', None)
+        self.decoder = Decoder(latent_dim=self.latent_size, k=self.k, conv_shape=conv_shape).to(self.device)
 
         self.actor  = Actor(self.latent_size, self.action_num, self.encoder).to(self.device)
         self.critic = Critic(self.latent_size, self.action_num, self.encoder).to(self.device)

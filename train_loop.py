@@ -63,7 +63,7 @@ def train(env, agent, file_name, intrinsic_on, number_stack_frames, args):
     # Needed classes
     # ------------------------------------#
     memory       = MemoryBuffer()
-    frames_stack = FrameStack(env, k)
+    frames_stack = FrameStack(env, k, height=args.render_height, width=args.render_width)
     # ------------------------------------#
 
     # Training Loop
@@ -215,9 +215,12 @@ def grab_frame(env):
 def define_parse_args():
     parser = ArgumentParser()
 
-    parser.add_argument('--max_steps_training',        type=int, default=1000000)
+    parser.add_argument('--max_steps_training',        type=int, default=200000)
     parser.add_argument('--max_steps_pre_exploration', type=int, default=1000)
     parser.add_argument('--number_eval_episodes',      type=int, default=10)
+
+    parser.add_argument('--render_height', type=int, default=64)
+    parser.add_argument('--render_width',  type=int, default=64)
 
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--G',          type=int, default=5)
@@ -282,7 +285,9 @@ def main():
         latent_size=latent_size,
         action_num=action_size,
         device=device,
-        k=number_stack_frames)
+        k=number_stack_frames,
+        img_h=args.render_height,
+        img_w=args.render_width)
 
     intrinsic_on  = args.intrinsic
     if intrinsic_on:
